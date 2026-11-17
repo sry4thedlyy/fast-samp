@@ -1,0 +1,19 @@
+#nav-div,
+#comments,
+#consent-window,
+#all-playlist-btn,
+#playlist-dropdown,
+#playlist-more-btn,
+#playlist-dropdown-menu,
+#playlist-more-dropdown,
+.gems-playlist-btn,
+.for-you-playlist-btn,
+.trending-playlist-btn,
+.favorites-playlist-btn,
+#add-to-playlist-dropdown,
+#sample-row [aria-label="Favorite"],
+#sample-row [aria-label="More"],
+#sample-row [title="Favorite"],
+#sample-row [title="More"] {
+  display: none !important;
+}

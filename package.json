@@ -1,0 +1,17 @@
+{
+  "name": "fast-samp",
+  "productName": "FAST/SAMP",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Samplette workspace with native audio drag and drop for FL Studio",
+  "main": "app/main.cjs",
+  "scripts": {
+    "start": "electron .",
+    "setup:audio": "node app/setup-audio.cjs",
+    "build:windows": "node scripts/build-windows.cjs",
+    "package:windows": "node scripts/build-windows.cjs --release"
+  },
+  "devDependencies": {
+    "electron": "45.3.3"
+  }
+}

@@ -1,0 +1,6 @@
+node_modules/
+.npm-cache/
+.electron-cache/
+tools/
+dist/
+.tmp/
