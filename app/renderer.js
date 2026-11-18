@@ -219,7 +219,7 @@ function renderTrack() {
   importZone.draggable = Boolean(readySample);
   $('drag-icon').querySelector('use').setAttribute('href', readySample ? '#i-drag' : '#i-download');
   const messages = {
-    checking: 'Проверяем YouTube…',
+    checking: 'Определяем соединение…',
     queued: 'В очереди',
     resolving: 'Получаем аудио…',
     downloading: `Скачивание · ${Math.round(job?.progress || 0)}%`,

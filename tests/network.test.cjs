@@ -38,6 +38,7 @@ test('simultaneous checks share a request and fail when the YouTube API cannot l
   assert.equal(first.status, 'error');
   assert.match(first.message, /прокси/);
   assert.equal(first.detail, 'ERR_PROXY_CONNECTION_FAILED');
+  assert.equal(await network.proxyFor('https://www.youtube.com/watch?v=aqz-KE-bpKQ'), 'http://127.0.0.1:10809');
   assert.deepEqual(updates, ['checking', 'error']);
   await network.check();
   assert.equal(requests, 1);

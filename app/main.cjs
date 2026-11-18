@@ -177,16 +177,12 @@ async function nextJob() {
   let saving = false;
   try {
     updateJob(job, { status: 'checking', progress: 0 });
-    const connection = await network.check();
-    if (connection.status !== 'ready') {
-      const error = new Error(connection.detail || connection.message);
-      error.userMessage = connection.message;
-      throw error;
-    }
+    void network.check();
+    const proxy = await network.proxyFor(`https://www.youtube.com/watch?v=${job.id}`);
     updateJob(job, { status: 'resolving', progress: 0 });
     directory = await files.mkdtemp(path.join(temporaryPath, 'track-'));
     const info = await downloadWav({
-      id: job.id, directory, tools: toolPaths(toolRoot), proxy: connection.proxy, runtime,
+      id: job.id, directory, tools: toolPaths(toolRoot), proxy, runtime,
       report: (patch) => updateJob(job, patch),
     });
     const title = info.title || job.title || `YouTube ${job.id}`;
@@ -196,7 +192,7 @@ async function nextJob() {
     jobs.delete(job.id);
     send('job:update', { id: job.id, status: 'ready' });
   } catch (error) {
-    const failure = error.userMessage ? { message: error.userMessage, detail: error.message } : saving
+    const failure = saving
       ? { message: 'Не удалось сохранить WAV. Проверь папку скачивания.', detail: error.message }
       : downloadError(error);
     updateJob(job, { status: 'error', ...failure });

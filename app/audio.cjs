@@ -110,7 +110,7 @@ async function downloadWav({ id, directory, tools, proxy = '', runtime, report }
   const args = [
     '--ignore-config', '--no-playlist', '--no-warnings', '--no-simulate',
     '--proxy', proxy,
-    '--socket-timeout', '15', '--retries', '2', '--extractor-retries', '1',
+    '--socket-timeout', '10', '--retries', '1', '--extractor-retries', '0',
     '--js-runtimes', `node:${process.execPath}`, '--encoding', 'utf-8',
     '--ffmpeg-location', tools.ffmpeg, '--format', 'bestaudio/best',
     '--extract-audio', '--audio-format', 'wav',
@@ -149,8 +149,11 @@ function downloadError(error) {
   if (/unavailable|private video|copyright|age.restricted/i.test(detail)) {
     return { message: 'Этот трек недоступен для загрузки.', detail };
   }
+  if (/proxy|SOCKS|прокси/i.test(detail)) {
+    return { message: 'Не удалось подключиться через прокси. Проверь соединение в настройках.', detail };
+  }
   if (/time.?out|unable to download|connect|ENOTFOUND|getaddrinfo/i.test(detail)) {
-    return { message: 'Не удалось загрузить аудио. Проверь соединение и повтори.', detail };
+    return { message: 'Загрузчик не смог подключиться к YouTube. Проверь доступ к YouTube и настройки соединения.', detail };
   }
   return { message: 'Не удалось подготовить WAV. Попробуй снова.', detail };
 }

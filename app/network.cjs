@@ -43,6 +43,19 @@ class NetworkConnection {
     return config;
   }
 
+  async proxyFor(url) {
+    let timeout;
+    try {
+      const deadline = new Promise((resolve, reject) => {
+        timeout = setTimeout(() => reject(new Error('Не удалось определить прокси за 8 секунд.')), 8000);
+      });
+      const route = await Promise.race([this.session.resolveProxy(url), deadline]);
+      return downloaderProxy(route);
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+
   check({ refresh = false } = {}) {
     if (this.pending) return this.pending;
     if (!refresh && Date.now() - this.checkedAt < 5000) return Promise.resolve(this.result);
