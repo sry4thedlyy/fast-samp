@@ -102,13 +102,14 @@ function runDownloader(command, args, runtime, onLine) {
   });
 }
 
-async function downloadWav({ id, directory, tools, runtime, report }) {
+async function downloadWav({ id, directory, tools, proxy = '', runtime, report }) {
   const wav = path.join(directory, 'track.wav');
   let title = '';
   let artist = '';
   let length = 0;
   const args = [
     '--ignore-config', '--no-playlist', '--no-warnings', '--no-simulate',
+    '--proxy', proxy,
     '--socket-timeout', '15', '--retries', '2', '--extractor-retries', '1',
     '--js-runtimes', `node:${process.execPath}`, '--encoding', 'utf-8',
     '--ffmpeg-location', tools.ffmpeg, '--format', 'bestaudio/best',

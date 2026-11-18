@@ -17,6 +17,12 @@
 
 Для семплирования используй материал, на который у тебя есть разрешение.
 
+## Подключение к YouTube
+
+Плеер и загрузка WAV требуют доступа к YouTube. Если YouTube не открывается в обычном браузере, проверь подключение перед повторной подготовкой трека.
+
+В **Настройках** выбери системное подключение, прямое подключение или укажи свой HTTP / SOCKS-прокси. Плеер и загрузчик используют выбранный маршрут. Кнопка **Проверить YouTube** проверяет доступность плеера с ограничением в 8 секунд.
+
 ## Quick start
 
 Download the [Windows x64 release](https://github.com/sry4thedlyy/fast-samp/releases/latest), extract the entire ZIP, and run `FAST-SAMP.exe`. Choose a folder for your WAV files, then pick a track in Samplette. yt-dlp, FFmpeg and FFprobe are included. When the WAV is ready, drag it into the FL Studio Playlist.
@@ -32,5 +38,7 @@ npm start
 ```
 
 Для ZIP-архива релиза выполни `npm run package:windows`. Готовый архив появится в `dist/release`. Команда `npm run setup:audio -- --update` обновляет yt-dlp для запуска из исходников.
+
+Проверки сетевых настроек запускаются командой `npm test`.
 
 Сборка содержит аудиоинструменты из [релизов yt-dlp](https://github.com/yt-dlp/yt-dlp/releases) и [Windows-сборок FFmpeg от Gyan Doshi](https://www.gyan.dev/ffmpeg/builds/). Версии, лицензии и ссылки на исходники приведены в [THIRD_PARTY.md](THIRD_PARTY.md).

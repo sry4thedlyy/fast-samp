@@ -6,6 +6,7 @@ const path = require('node:path');
 const { Readable } = require('node:stream');
 const { youtubeId, videoIdPattern, wavName, readWav, downloadWav, downloadError } = require('./audio.cjs');
 const { audioToolsReady, toolPaths } = require('./setup-audio.cjs');
+const { connectionSettings, NetworkConnection } = require('./network.cjs');
 
 const sampletteUrl = 'https://samplette.io/';
 const sitePartition = 'persist:samplette';
@@ -25,6 +26,7 @@ const queue = [];
 let window;
 let shellContents;
 let site;
+let network;
 let dragIcon;
 let currentTrack = null;
 let siteTrackId = null;
@@ -34,7 +36,7 @@ let autoTimer;
 let activeJob;
 let scanTimer;
 let scanRunning = false;
-let settings = { autoPrepare: true, downloadDirectory: null };
+let settings = { autoPrepare: true, downloadDirectory: null, connection: connectionSettings() };
 
 fs.mkdirSync(dataRoot, { recursive: true });
 app.setPath('userData', dataRoot);
@@ -174,10 +176,17 @@ async function nextJob() {
   let directory;
   let saving = false;
   try {
+    updateJob(job, { status: 'checking', progress: 0 });
+    const connection = await network.check();
+    if (connection.status !== 'ready') {
+      const error = new Error(connection.detail || connection.message);
+      error.userMessage = connection.message;
+      throw error;
+    }
     updateJob(job, { status: 'resolving', progress: 0 });
     directory = await files.mkdtemp(path.join(temporaryPath, 'track-'));
     const info = await downloadWav({
-      id: job.id, directory, tools: toolPaths(toolRoot), runtime,
+      id: job.id, directory, tools: toolPaths(toolRoot), proxy: connection.proxy, runtime,
       report: (patch) => updateJob(job, patch),
     });
     const title = info.title || job.title || `YouTube ${job.id}`;
@@ -187,7 +196,7 @@ async function nextJob() {
     jobs.delete(job.id);
     send('job:update', { id: job.id, status: 'ready' });
   } catch (error) {
-    const failure = saving
+    const failure = error.userMessage ? { message: error.userMessage, detail: error.message } : saving
       ? { message: 'Не удалось сохранить WAV. Проверь папку скачивания.', detail: error.message }
       : downloadError(error);
     updateJob(job, { status: 'error', ...failure });
@@ -249,6 +258,7 @@ async function scanSite() {
   scanRunning = true;
   try {
     const track = await site.webContents.executeJavaScript(`(${siteTrack.toString()})()`);
+    if (!siteBounds) return;
     const frameUrls = site.webContents.mainFrame.frames.map((frame) => frame.url);
     const id = [...track.urls, ...frameUrls].map(youtubeId).find(Boolean);
     if (!id || id === siteTrackId) return;
@@ -265,7 +275,7 @@ async function scanSite() {
 
 function ensureSite() {
   if (site) return;
-  const browserSession = session.fromPartition(sitePartition);
+  const browserSession = network.session;
   browserSession.setPermissionRequestHandler((_content, _permission, callback) => callback(false));
   browserSession.setPermissionCheckHandler(() => false);
   browserSession.on('will-download', (event) => event.preventDefault());
@@ -297,7 +307,7 @@ function ensureSite() {
       attachSite();
     }
   });
-  contents.on('did-finish-load', async () => {
+  contents.on('dom-ready', async () => {
     const url = contents.getURL();
     if (!siteUrl(url)) return;
     await contents.insertCSS(sampletteStyle, { cssOrigin: 'user' }).catch(console.warn);
@@ -305,6 +315,7 @@ function ensureSite() {
     sendSite('ready');
     attachSite();
     void scanSite();
+    void network.check();
   });
   contents.on('did-fail-load', (_event, code, detail, _url, isMainFrame) => {
     if (isMainFrame && code !== -3) {
@@ -440,8 +451,29 @@ async function openDownloadDirectory() {
 function registerHandlers() {
   handler('app:state', () => ({
     library: libraryList(), jobs: [...jobs.values()], settings, siteStatus,
-    currentTrack, version: app.getVersion(),
+    currentTrack, network: network.result, version: app.getVersion(),
   }));
+  handler('network:check', async () => {
+    const result = await network.check({ refresh: true });
+    if (result.status === 'ready' && site && siteStatus === 'ready') {
+      openSite(siteUrl(site.webContents.getURL())?.href || sampletteUrl);
+    }
+    return result;
+  });
+  handler('settings:connection', async (value) => {
+    if (activeJob || network.pending) return { error: 'Дождись завершения проверки или подготовки WAV.' };
+    const previous = settings.connection;
+    try {
+      const config = connectionSettings(value);
+      await network.configure(config);
+      saveSettings({ connection: config });
+      if (site) openSite(siteUrl(site.webContents.getURL())?.href || sampletteUrl);
+      return { connection: config, network: await network.check({ refresh: true }) };
+    } catch (error) {
+      await network.configure(previous).catch(console.warn);
+      return { error: error.message };
+    }
+  });
   handler('window:action', (action) => {
     if (action === 'pin') {
       window.setAlwaysOnTop(!window.isAlwaysOnTop());
@@ -469,7 +501,7 @@ function registerHandlers() {
     if (id) {
       const track = { id, title: library.get(id)?.title || `YouTube ${id}`, artist: library.get(id)?.artist || 'YouTube' };
       selectTrack(track);
-      return prepare(track);
+      return { ...prepare(track), track };
     }
     const url = siteUrl(source);
     if (url) {
@@ -497,7 +529,10 @@ function registerHandlers() {
   ipcMain.on('audio:drag', (event, id) => {
     if (event.sender !== shellContents || event.senderFrame !== shellContents.mainFrame) return;
     const item = library.get(id);
-    if (item && fs.existsSync(item.file)) event.sender.startDrag({ file: item.file, icon: dragIcon });
+    if (item && fs.existsSync(item.file)) {
+      try { event.sender.startDrag({ file: item.file, icon: dragIcon }); }
+      catch (error) { send('app:notice', 'Не удалось начать перетаскивание WAV.'); console.warn(error.message); }
+    }
     else send('app:notice', 'Файл WAV перемещён или удалён.');
   });
 }
@@ -541,10 +576,13 @@ if (!app.requestSingleInstanceLock()) {
       if (typeof saved.downloadDirectory === 'string' && path.isAbsolute(saved.downloadDirectory)) {
         settings.downloadDirectory = saved.downloadDirectory;
       }
+      try { settings.connection = connectionSettings(saved.connection); } catch {}
     } catch (error) {
       if (error.code !== 'ENOENT') console.warn('Reading settings:', error.message);
     }
     await loadLibrary();
+    network = new NetworkConnection(session.fromPartition(sitePartition), (result) => send('network:update', result));
+    await network.configure(settings.connection);
     dragIcon = nativeImage.createFromPath(path.join(assets, 'app-icon.png')).resize({ width: 40, height: 40 });
     protocol.handle('sample-audio', serveAudio);
     registerHandlers();

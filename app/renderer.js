@@ -29,7 +29,7 @@ function showToast(message) {
 
 function syncSiteBounds() {
   if (!started) return;
-  if (view !== 'samplette' || sourceDialog.open || settingsDialog.open) {
+  if (view !== 'samplette' || sourceDialog.open || settingsDialog.open || deleteDialog.open) {
     void api.siteBounds(null);
     return;
   }
@@ -219,6 +219,7 @@ function renderTrack() {
   importZone.draggable = Boolean(readySample);
   $('drag-icon').querySelector('use').setAttribute('href', readySample ? '#i-drag' : '#i-download');
   const messages = {
+    checking: 'Проверяем YouTube…',
     queued: 'В очереди',
     resolving: 'Получаем аудио…',
     downloading: `Скачивание · ${Math.round(job?.progress || 0)}%`,
@@ -279,7 +280,7 @@ for (const button of document.querySelectorAll('[data-window]')) {
 for (const button of document.querySelectorAll('[data-close-dialog]')) {
   button.addEventListener('click', () => button.closest('dialog').close());
 }
-for (const dialog of [sourceDialog, settingsDialog]) dialog.addEventListener('close', syncSiteBounds);
+for (const dialog of [sourceDialog, settingsDialog, deleteDialog]) dialog.addEventListener('close', syncSiteBounds);
 
 $('open-source').addEventListener('click', () => {
   $('source-error').hidden = true;
@@ -293,6 +294,50 @@ $('paste-source').addEventListener('click', async () => {
 $('open-settings').addEventListener('click', () => {
   $('directory-error').hidden = true;
   openDialog(settingsDialog);
+});
+$('network-settings').addEventListener('click', () => $('open-settings').click());
+
+function showConnection(config) {
+  $('connection-mode').value = config.mode;
+  $('connection-proxy').value = config.proxy || '';
+  toggleProxy();
+}
+
+function toggleProxy() {
+  const hidden = $('connection-mode').value !== 'custom';
+  $('connection-proxy').hidden = hidden;
+  $('proxy-label').hidden = hidden;
+}
+
+function showNetwork(result) {
+  const checking = result.status === 'checking';
+  $('network-status').textContent = checking ? 'Проверяем YouTube…' :
+    [result.message, result.route ? `Маршрут: ${result.route}` : ''].filter(Boolean).join(' ');
+  if (!checking) $('network-notice').hidden = result.status !== 'error';
+  $('network-notice-text').textContent = result.message || '';
+  for (const id of ['check-network', 'retry-network']) $(id).disabled = checking;
+}
+
+async function checkNetwork() {
+  try { showNetwork(await api.checkNetwork()); }
+  catch { showToast('Не удалось проверить соединение.'); }
+}
+$('connection-mode').addEventListener('change', toggleProxy);
+for (const id of ['check-network', 'retry-network']) $(id).addEventListener('click', checkNetwork);
+$('save-connection').addEventListener('click', async ({ currentTarget: button }) => {
+  button.disabled = true;
+  $('connection-error').hidden = true;
+  try {
+    const result = await api.setConnection({ mode: $('connection-mode').value, proxy: $('connection-proxy').value.trim() });
+    if (result.error) throw new Error(result.error);
+    showConnection(result.connection);
+    showNetwork(result.network);
+  } catch (error) {
+    $('connection-error').textContent = error.message;
+    $('connection-error').hidden = false;
+  } finally {
+    button.disabled = false;
+  }
 });
 async function chooseDirectory() {
   const button = $('choose-directory');
@@ -362,6 +407,7 @@ $('source-form').addEventListener('submit', async (event) => {
   }
   sourceDialog.close();
   $('source-url').value = '';
+  if (result.track) selectSample(result.track);
   if (result.view) openView(result.view);
 });
 
@@ -410,7 +456,7 @@ api.onMaximize((maximized) => {
 api.onNotice(showToast);
 api.onTrack((track) => {
   sourceTrack = track;
-  selectSample(track);
+  if (view === 'samplette') selectSample(track);
 });
 api.onLibrary((samples) => {
   library = samples;
@@ -423,6 +469,7 @@ api.onJob((job) => {
   if (selected?.id === job.id) renderTrack();
 });
 api.onSite(updateSite);
+api.onNetwork(showNetwork);
 
 async function start() {
   const state = await api.state();
@@ -430,6 +477,8 @@ async function start() {
   state.jobs.forEach((job) => jobs.set(job.id, job));
   $('auto-prepare').checked = state.settings.autoPrepare;
   showDirectory(state.settings.downloadDirectory);
+  showConnection(state.settings.connection);
+  showNetwork(state.network);
   sourceTrack = state.currentTrack;
   selected = sourceTrack;
   renderLibrarySearch();
