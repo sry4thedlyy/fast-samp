@@ -5,15 +5,14 @@ const files = require('node:fs/promises');
 const path = require('node:path');
 const { Readable } = require('node:stream');
 const { youtubeId, videoIdPattern, wavName, readWav, downloadWav, downloadError } = require('./audio.cjs');
-const { audioToolsReady, setupAudio, toolPaths } = require('./setup-audio.cjs');
+const { audioToolsReady, toolPaths } = require('./setup-audio.cjs');
 
 const sampletteUrl = 'https://samplette.io/';
 const sitePartition = 'persist:samplette';
 const assets = path.join(__dirname, 'assets');
 const dataRoot = process.env.FAST_SAMP_DATA_DIR || path.join(app.getPath('appData'), 'FAST-SAMP');
 const bundledTools = path.join(process.resourcesPath, 'tools');
-const toolRoot = !app.isPackaged ? path.join(__dirname, '..', 'tools') :
-  audioToolsReady(bundledTools) ? bundledTools : path.join(dataRoot, 'tools');
+const toolRoot = app.isPackaged ? bundledTools : path.join(__dirname, '..', 'tools');
 const defaultDownloadDirectory = path.join(dataRoot, 'WAV');
 const catalogPath = path.join(dataRoot, 'catalog');
 const temporaryPath = path.join(dataRoot, 'incoming');
@@ -174,14 +173,7 @@ async function nextJob() {
   activeJob = runtime;
   let directory;
   let saving = false;
-  let installing = false;
   try {
-    if (!audioToolsReady(toolRoot)) {
-      installing = true;
-      updateJob(job, { status: 'installing' });
-      await setupAudio(toolRoot);
-      installing = false;
-    }
     updateJob(job, { status: 'resolving', progress: 0 });
     directory = await files.mkdtemp(path.join(temporaryPath, 'track-'));
     const info = await downloadWav({
@@ -195,9 +187,7 @@ async function nextJob() {
     jobs.delete(job.id);
     send('job:update', { id: job.id, status: 'ready' });
   } catch (error) {
-    const failure = installing
-      ? { message: 'Не удалось скачать аудиоинструменты. Проверь соединение и повтори.', detail: error.message }
-      : saving
+    const failure = saving
       ? { message: 'Не удалось сохранить WAV. Проверь папку скачивания.', detail: error.message }
       : downloadError(error);
     updateJob(job, { status: 'error', ...failure });
@@ -215,6 +205,9 @@ function prepare(track) {
   if (library.has(id) && fs.existsSync(library.get(id).file)) return { ok: true };
   if (!videoIdPattern.test(id)) return { error: 'Выбери трек в Samplette.' };
   if (!settings.downloadDirectory) return { error: 'Выбери папку скачивания в настройках.' };
+  if (!audioToolsReady(toolRoot)) return { error: app.isPackaged
+    ? 'Не найдены встроенные аудиоинструменты. Распакуй всю папку FAST-SAMP из ZIP заново.'
+    : 'Подготовь аудиоинструменты командой npm run setup:audio.' };
   if (jobs.has(id) && jobs.get(id).status !== 'error') return { ok: true };
   if (queue.length >= 12) return { error: 'Очередь заполнена. Дождись подготовки файлов.' };
   if (library.delete(id)) send('library:update', libraryList());

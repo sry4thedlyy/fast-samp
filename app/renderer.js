@@ -220,7 +220,6 @@ function renderTrack() {
   $('drag-icon').querySelector('use').setAttribute('href', readySample ? '#i-drag' : '#i-download');
   const messages = {
     queued: 'В очереди',
-    installing: 'Скачиваем аудиоинструменты…',
     resolving: 'Получаем аудио…',
     downloading: `Скачивание · ${Math.round(job?.progress || 0)}%`,
     converting: 'Конвертируем в WAV…',

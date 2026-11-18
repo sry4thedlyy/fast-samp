@@ -1,7 +1,7 @@
 {
   "name": "fast-samp",
   "productName": "FAST/SAMP",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "description": "Samplette workspace with native audio drag and drop for FL Studio",
   "main": "app/main.cjs",

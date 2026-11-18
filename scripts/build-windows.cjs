@@ -8,8 +8,8 @@ if (process.platform !== 'win32' || process.arch !== 'x64') {
 
 const root = path.resolve(__dirname, '..');
 const release = process.argv.includes('--release');
-const tools = ['ffmpeg.exe', 'ffprobe.exe', 'yt-dlp.exe', 'FFmpeg-LICENSE.txt'];
-if (!release && tools.some((file) => !fs.existsSync(path.join(root, 'tools', file)))) {
+const tools = ['ffmpeg.exe', 'ffprobe.exe', 'yt-dlp.exe'];
+if (tools.some((file) => !fs.existsSync(path.join(root, 'tools', file)))) {
   throw new Error('Run npm run setup:audio before building.');
 }
 
@@ -25,12 +25,14 @@ for (const entry of fs.readdirSync(path.dirname(electron))) {
 fs.mkdirSync(appTarget, { recursive: true });
 fs.cpSync(path.join(root, 'app'), path.join(appTarget, 'app'), { recursive: true });
 fs.copyFileSync(path.join(root, 'package.json'), path.join(appTarget, 'package.json'));
+fs.mkdirSync(toolTarget, { recursive: true });
+for (const file of tools) fs.copyFileSync(path.join(root, 'tools', file), path.join(toolTarget, file));
+fs.cpSync(path.join(root, 'licenses'), path.join(output, 'licenses'), { recursive: true });
+fs.copyFileSync(path.join(root, 'THIRD_PARTY.md'), path.join(output, 'THIRD_PARTY.md'));
 if (release) {
   const archive = path.join(path.dirname(output), 'FAST-SAMP-windows-x64.zip');
   execFileSync('tar.exe', ['-acf', archive, '-C', path.dirname(output), path.basename(output)], { stdio: 'inherit' });
   console.log(archive);
 } else {
-  fs.mkdirSync(toolTarget, { recursive: true });
-  for (const file of tools) fs.copyFileSync(path.join(root, 'tools', file), path.join(toolTarget, file));
   console.log(path.join(output, 'FAST-SAMP.exe'));
 }
