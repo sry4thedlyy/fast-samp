@@ -65,11 +65,6 @@
       </section>
     </main>
     <aside class="tray" aria-labelledby="tray-heading">
-      <div id="network-notice" class="network-notice" role="status" hidden>
-        <p id="network-notice-text"></p>
-        <button class="button secondary" id="retry-network" type="button">Проверить соединение</button>
-        <button class="button quiet" id="network-settings" type="button">Настройки</button>
-      </div>
       <h2 id="tray-heading">Сэмпл</h2>
       <p id="track-empty" class="empty-track">Выбери трек в Samplette.</p>
       <div id="track-card" class="track-card" hidden>
@@ -123,22 +118,6 @@
       <span>Готовить WAV автоматически</span>
       <input id="auto-prepare" type="checkbox" role="switch">
     </label>
-    <div class="connection-setting">
-      <label for="connection-mode">Подключение плеера и загрузчика</label>
-      <select id="connection-mode">
-        <option value="system">Системное</option>
-        <option value="direct">Прямое</option>
-        <option value="custom">Свой прокси</option>
-      </select>
-      <label for="connection-proxy" id="proxy-label" hidden>Адрес HTTP / SOCKS-прокси</label>
-      <input id="connection-proxy" type="url" placeholder="http://127.0.0.1:8080" spellcheck="false" autocomplete="off" hidden>
-      <div class="connection-actions">
-        <button class="button secondary" id="save-connection" type="button">Применить</button>
-        <button class="button quiet" id="check-network" type="button">Проверить YouTube</button>
-      </div>
-      <p id="network-status" class="dialog-note" role="status"></p>
-      <p id="connection-error" class="dialog-error" role="alert" hidden></p>
-    </div>
   </dialog>
   <dialog id="delete-dialog" aria-labelledby="delete-heading">
     <div class="dialog-heading"><h2 id="delete-heading">Удалить сэмпл?</h2></div>

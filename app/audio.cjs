@@ -150,10 +150,10 @@ function downloadError(error) {
     return { message: 'Этот трек недоступен для загрузки.', detail };
   }
   if (/proxy|SOCKS|прокси/i.test(detail)) {
-    return { message: 'Не удалось подключиться через прокси. Проверь соединение в настройках.', detail };
+    return { message: 'Не удалось подключиться через прокси. Проверь, что прокси или VPN включён и работает.', detail };
   }
   if (/time.?out|unable to download|connect|ENOTFOUND|getaddrinfo/i.test(detail)) {
-    return { message: 'Загрузчик не смог подключиться к YouTube. Проверь доступ к YouTube и настройки соединения.', detail };
+    return { message: 'Нет соединения с YouTube. Проверь интернет и работу прокси или VPN.', detail };
   }
   return { message: 'Не удалось подготовить WAV. Попробуй снова.', detail };
 }

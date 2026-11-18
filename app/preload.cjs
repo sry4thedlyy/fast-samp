@@ -16,8 +16,6 @@ contextBridge.exposeInMainWorld('fastSamp', {
   revealSample: handle('library:reveal'),
   chooseDownloadDirectory: handle('settings:choose-directory'),
   autoPrepare: handle('settings:auto'),
-  checkNetwork: handle('network:check'),
-  setConnection: handle('settings:connection'),
   dragSample: (id) => ipcRenderer.send('audio:drag', id),
   onTrack: subscribe('track:update'),
   onJob: subscribe('job:update'),
@@ -25,5 +23,4 @@ contextBridge.exposeInMainWorld('fastSamp', {
   onSite: subscribe('site:update'),
   onMaximize: subscribe('window:maximized'),
   onNotice: subscribe('app:notice'),
-  onNetwork: subscribe('network:update'),
 });

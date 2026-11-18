@@ -295,50 +295,6 @@ $('open-settings').addEventListener('click', () => {
   $('directory-error').hidden = true;
   openDialog(settingsDialog);
 });
-$('network-settings').addEventListener('click', () => $('open-settings').click());
-
-function showConnection(config) {
-  $('connection-mode').value = config.mode;
-  $('connection-proxy').value = config.proxy || '';
-  toggleProxy();
-}
-
-function toggleProxy() {
-  const hidden = $('connection-mode').value !== 'custom';
-  $('connection-proxy').hidden = hidden;
-  $('proxy-label').hidden = hidden;
-}
-
-function showNetwork(result) {
-  const checking = result.status === 'checking';
-  $('network-status').textContent = checking ? 'Проверяем YouTube…' :
-    [result.message, result.route ? `Маршрут: ${result.route}` : ''].filter(Boolean).join(' ');
-  if (!checking) $('network-notice').hidden = result.status !== 'error';
-  $('network-notice-text').textContent = result.message || '';
-  for (const id of ['check-network', 'retry-network']) $(id).disabled = checking;
-}
-
-async function checkNetwork() {
-  try { showNetwork(await api.checkNetwork()); }
-  catch { showToast('Не удалось проверить соединение.'); }
-}
-$('connection-mode').addEventListener('change', toggleProxy);
-for (const id of ['check-network', 'retry-network']) $(id).addEventListener('click', checkNetwork);
-$('save-connection').addEventListener('click', async ({ currentTarget: button }) => {
-  button.disabled = true;
-  $('connection-error').hidden = true;
-  try {
-    const result = await api.setConnection({ mode: $('connection-mode').value, proxy: $('connection-proxy').value.trim() });
-    if (result.error) throw new Error(result.error);
-    showConnection(result.connection);
-    showNetwork(result.network);
-  } catch (error) {
-    $('connection-error').textContent = error.message;
-    $('connection-error').hidden = false;
-  } finally {
-    button.disabled = false;
-  }
-});
 async function chooseDirectory() {
   const button = $('choose-directory');
   const error = $('directory-error');
@@ -469,7 +425,6 @@ api.onJob((job) => {
   if (selected?.id === job.id) renderTrack();
 });
 api.onSite(updateSite);
-api.onNetwork(showNetwork);
 
 async function start() {
   const state = await api.state();
@@ -477,8 +432,6 @@ async function start() {
   state.jobs.forEach((job) => jobs.set(job.id, job));
   $('auto-prepare').checked = state.settings.autoPrepare;
   showDirectory(state.settings.downloadDirectory);
-  showConnection(state.settings.connection);
-  showNetwork(state.network);
   sourceTrack = state.currentTrack;
   selected = sourceTrack;
   renderLibrarySearch();

@@ -6,7 +6,7 @@ const path = require('node:path');
 const { Readable } = require('node:stream');
 const { youtubeId, videoIdPattern, wavName, readWav, downloadWav, downloadError } = require('./audio.cjs');
 const { audioToolsReady, toolPaths } = require('./setup-audio.cjs');
-const { connectionSettings, NetworkConnection } = require('./network.cjs');
+const { systemProxy } = require('./network.cjs');
 
 const sampletteUrl = 'https://samplette.io/';
 const sitePartition = 'persist:samplette';
@@ -26,7 +26,6 @@ const queue = [];
 let window;
 let shellContents;
 let site;
-let network;
 let dragIcon;
 let currentTrack = null;
 let siteTrackId = null;
@@ -36,7 +35,7 @@ let autoTimer;
 let activeJob;
 let scanTimer;
 let scanRunning = false;
-let settings = { autoPrepare: true, downloadDirectory: null, connection: connectionSettings() };
+let settings = { autoPrepare: true, downloadDirectory: null };
 
 fs.mkdirSync(dataRoot, { recursive: true });
 app.setPath('userData', dataRoot);
@@ -177,8 +176,7 @@ async function nextJob() {
   let saving = false;
   try {
     updateJob(job, { status: 'checking', progress: 0 });
-    void network.check();
-    const proxy = await network.proxyFor(`https://www.youtube.com/watch?v=${job.id}`);
+    const proxy = await systemProxy(session.fromPartition(sitePartition), `https://www.youtube.com/watch?v=${job.id}`);
     updateJob(job, { status: 'resolving', progress: 0 });
     directory = await files.mkdtemp(path.join(temporaryPath, 'track-'));
     const info = await downloadWav({
@@ -271,7 +269,7 @@ async function scanSite() {
 
 function ensureSite() {
   if (site) return;
-  const browserSession = network.session;
+  const browserSession = session.fromPartition(sitePartition);
   browserSession.setPermissionRequestHandler((_content, _permission, callback) => callback(false));
   browserSession.setPermissionCheckHandler(() => false);
   browserSession.on('will-download', (event) => event.preventDefault());
@@ -311,7 +309,6 @@ function ensureSite() {
     sendSite('ready');
     attachSite();
     void scanSite();
-    void network.check();
   });
   contents.on('did-fail-load', (_event, code, detail, _url, isMainFrame) => {
     if (isMainFrame && code !== -3) {
@@ -447,29 +444,8 @@ async function openDownloadDirectory() {
 function registerHandlers() {
   handler('app:state', () => ({
     library: libraryList(), jobs: [...jobs.values()], settings, siteStatus,
-    currentTrack, network: network.result, version: app.getVersion(),
+    currentTrack, version: app.getVersion(),
   }));
-  handler('network:check', async () => {
-    const result = await network.check({ refresh: true });
-    if (result.status === 'ready' && site && siteStatus === 'ready') {
-      openSite(siteUrl(site.webContents.getURL())?.href || sampletteUrl);
-    }
-    return result;
-  });
-  handler('settings:connection', async (value) => {
-    if (activeJob || network.pending) return { error: 'Дождись завершения проверки или подготовки WAV.' };
-    const previous = settings.connection;
-    try {
-      const config = connectionSettings(value);
-      await network.configure(config);
-      saveSettings({ connection: config });
-      if (site) openSite(siteUrl(site.webContents.getURL())?.href || sampletteUrl);
-      return { connection: config, network: await network.check({ refresh: true }) };
-    } catch (error) {
-      await network.configure(previous).catch(console.warn);
-      return { error: error.message };
-    }
-  });
   handler('window:action', (action) => {
     if (action === 'pin') {
       window.setAlwaysOnTop(!window.isAlwaysOnTop());
@@ -572,13 +548,10 @@ if (!app.requestSingleInstanceLock()) {
       if (typeof saved.downloadDirectory === 'string' && path.isAbsolute(saved.downloadDirectory)) {
         settings.downloadDirectory = saved.downloadDirectory;
       }
-      try { settings.connection = connectionSettings(saved.connection); } catch {}
     } catch (error) {
       if (error.code !== 'ENOENT') console.warn('Reading settings:', error.message);
     }
     await loadLibrary();
-    network = new NetworkConnection(session.fromPartition(sitePartition), (result) => send('network:update', result));
-    await network.configure(settings.connection);
     dragIcon = nativeImage.createFromPath(path.join(assets, 'app-icon.png')).resize({ width: 40, height: 40 });
     protocol.handle('sample-audio', serveAudio);
     registerHandlers();
